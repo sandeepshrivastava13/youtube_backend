@@ -48,17 +48,21 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+//userSchema.pre is middleware which helps to perform task before save, update and delete data to db
+
 userSchema.pre("save", async function (next) {
   if (this.isModified("password")) {
-    this.password = bcrypt.hash(this.password, 10);
+    this.password = bcrypt.hash(this.password, 10); //encrypting password
     next();
   }
 });
 
 //JWT is bearer token who bear this token that mean who has access of that information
 
+//methods is schema property which helps to create function to work on db data
 userSchema.methods.isPasswordCorrect = async function (password) {
-  return await bcrypt.compare(password, this.password);
+  return await bcrypt.compare(password, this.password); //compare password
 };
 
 userSchema.methods.generateAccessToken = function () {

@@ -19,10 +19,18 @@ app.use(
   })
 ); //to handle json response and add limit to json file size
 
-app.use(express.urlencoded()); //to handle url having special character
+app.use(express.urlencoded({ extended: true })); //to handle url having special character
 
 app.use(express.static("public")); //to handle file and folder or you can say static files eg. favicon,image
 
 app.use(cookieParser());
+
+import userRouter from "./routes/user.routes.js";
+
+//routes declaration
+
+app.use("/api/v1/users", userRouter);
+
+//https://localhost:8000/api/v1/users/register
 
 export { app };
