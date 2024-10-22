@@ -248,7 +248,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 
 const updateUserAvatar = asyncHandler(async (req, res) => {});
 
-const getUserProfile = asyncHandler(async (req, res) => {
+const getChannelProfile = asyncHandler(async (req, res) => {
   const { username } = req.params;
   if (!username?.trim()) {
     throw new ApiError(400, "Username is not found");
@@ -374,6 +374,6 @@ export {
   changeCurrentUserPassword,
   getCurrentUser,
   updateAccountDetails,
-  getUserProfile,
+  getChannelProfile,
   getWatchHistory,
 };
