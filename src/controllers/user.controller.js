@@ -4,6 +4,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 import uploadOnCloudinary from "../utils/cloudinary.js";
+import mongoose from "mongoose";
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -192,7 +193,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
 const changeCurrentUserPassword = asyncHandler(async (req, res) => {
   const { oldPassword, newPassword, confirmPassword } = req.body;
-  if (!(newRefreshToken === confirmPassword)) {
+  if (!(newPassword === confirmPassword)) {
     throw new ApiError(400, "Please enter valid passowrd");
   }
   const user = await User.findById(req.user._id);
@@ -225,7 +226,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
     throw new ApiError(400, "All fields are required");
   }
 
-  const user = User.findByIdAndUpdate(
+  const user = await User.findByIdAndUpdate(
     req.user?._id,
     {
       $set: {
@@ -247,6 +248,124 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 
 const updateUserAvatar = asyncHandler(async (req, res) => {});
 
+const getUserProfile = asyncHandler(async (req, res) => {
+  const { username } = req.params;
+  if (!username?.trim()) {
+    throw new ApiError(400, "Username is not found");
+  }
+  const channel = await User.aggregate([
+    {
+      $match: {
+        username: username?.toLowerCase(), //match the user using match
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel", //find the detail who subscribe through lookup
+        as: "subscribers",
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber", //find the detail who subscribe to through lookup
+        as: "subscribedTo",
+      },
+    },
+    {
+      $addFields: {
+        subscribersCount: {
+          $size: "$subscribers",
+        },
+        channelSubscribedToCount: {
+          $size: "$subscribedTo", //add field to original or source document through addFields
+        },
+        isSubscribed: {
+          $cond: {
+            $if: { $in: [req.user._id, "$subscribers.subscriber"] }, //add conditions
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        fullName: 1,
+        username: 1,
+        subscribersCount: 1,
+        channelSubscribedToCount: 1, //fetch particular field from the document using project
+        isSubscribed: 1,
+        email: 1,
+        coverImage: 1,
+        avatar: 1,
+        email: 1,
+      },
+    },
+  ]);
+  if (channel.length <= 0) {
+    throw new ApiError(400, "Channel doesn't exists");
+  }
+  return res.status(200).json({
+    status: 200,
+    data: channel[0],
+    message: "Channel fetch successfully",
+  });
+});
+
+const getWatchHistory = asyncHandler(async (req, res) => {
+  const user = await User.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(req.user._id),
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "_id",
+        as: "watcHistory",
+        pipeline: [
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+              pipeline: [
+                //subpipeline
+                {
+                  $project: {
+                    fullName: 1,
+                    username: 1,
+                    avatar: 1,
+                  },
+                },
+              ],
+            },
+          },
+          {
+            $addFields: {
+              owner: {
+                $first: "$owner",
+              },
+            },
+          },
+        ],
+      },
+    },
+  ]);
+  return res.status(200).json({
+    status: 200,
+    data: user.watchHistory,
+    message: "Fetch watch history successfully",
+  });
+});
+
 export {
   registerUser,
   loginUser,
@@ -255,4 +374,6 @@ export {
   changeCurrentUserPassword,
   getCurrentUser,
   updateAccountDetails,
+  getUserProfile,
+  getWatchHistory,
 };
